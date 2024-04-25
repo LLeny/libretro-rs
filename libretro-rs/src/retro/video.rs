@@ -378,11 +378,18 @@ mod pixel_buffer {
   use std::sync::Arc;
 
   /// A slice of pixels.
-  pub trait PixelBuffer: AsRef<[Self::Pixel]> + Sized {
+  pub trait PixelBuffer: AsRef<[Self::Pixel]> {
     type Pixel: pixel::format::Format;
   }
 
   impl<P, const LEN: usize> PixelBuffer for [P; LEN]
+  where
+    P: pixel::format::Format,
+  {
+    type Pixel = P;
+  }
+
+  impl<P> PixelBuffer for [P]
   where
     P: pixel::format::Format,
   {
