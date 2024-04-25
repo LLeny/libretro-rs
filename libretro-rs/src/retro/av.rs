@@ -3,6 +3,8 @@ use core::ffi::*;
 use core::ops::*;
 use std::convert::Into;
 
+pub use crate::retro::hw_render::*;
+
 /// Represents the set of regions supported by `libretro`.
 #[non_exhaustive]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -28,10 +30,7 @@ pub struct SystemAVInfo(retro_system_av_info);
 impl SystemAVInfo {
   /// Main constructor.
   pub fn new(geometry: GameGeometry, timing: SystemTiming) -> Self {
-    Self(retro_system_av_info {
-      geometry: geometry.into(),
-      timing: timing.into(),
-    })
+    Self(retro_system_av_info { geometry: geometry.into(), timing: timing.into() })
   }
 
   /// Returns a [`SystemAVInfo`] with the default [`SystemTiming`].
@@ -169,10 +168,7 @@ impl SystemTiming {
 impl Default for SystemTiming {
   /// 60.0 FPS and 44.1khz sample rate.
   fn default() -> Self {
-    Self(retro_system_timing {
-      fps: 60.0,
-      sample_rate: 44_100.0,
-    })
+    Self(retro_system_timing { fps: 60.0, sample_rate: 44_100.0 })
   }
 }
 
@@ -230,10 +226,7 @@ pub struct Message(retro_message);
 
 impl Message {
   pub fn new<'a>(msg: impl Into<&'a CStr>, frames: c_uint) -> Self {
-    Self(retro_message {
-      msg: msg.into().as_ptr(),
-      frames,
-    })
+    Self(retro_message { msg: msg.into().as_ptr(), frames })
   }
 
   pub fn msg(&self) -> &CStr {
@@ -248,245 +241,5 @@ impl Message {
 impl From<Message> for retro_message {
   fn from(value: Message) -> Self {
     value.0
-  }
-}
-
-pub struct Frame<'a, T> {
-  data: &'a [T],
-  width: u32,
-  height: u32,
-  pitch: u32,
-}
-
-impl<'a, T> Frame<'a, T> {
-  pub fn from_2d_array<const W: usize, const H: usize>(data: &'a [[T; W]; H]) -> Self {
-    let width: u32 = W.try_into().expect("W should fit in u32");
-    let height: u32 = H.try_into().expect("H should fit in u32");
-    let (_, data, _) = unsafe { data.align_to::<T>() };
-    Self {
-      data,
-      width,
-      height,
-      pitch: width,
-    }
-  }
-
-  pub fn from_2d_slice<const W: usize>(data: &'a [[T; W]]) -> Self {
-    let width: u32 = W.try_into().expect("W should fit in u32");
-    let height: u32 = data.len().try_into().expect("data.len() should fit in u32");
-    let (_, data, _) = unsafe { data.align_to::<T>() };
-    Self {
-      data,
-      width,
-      height,
-      pitch: width,
-    }
-  }
-
-  pub fn new(data: &'a [T], width: u32, height: u32) -> Self {
-    assert_eq!(
-      width as usize * height as usize,
-      data.len(),
-      "width * height should equal data.len()"
-    );
-    Self {
-      data,
-      width,
-      height,
-      pitch: width,
-    }
-  }
-
-  pub fn with_pitch(mut self, pitch: u32) -> Self {
-    self.pitch = pitch;
-    self
-  }
-
-  pub fn data(&self) -> &'a [T] {
-    self.data
-  }
-
-  pub fn width(&self) -> u32 {
-    self.width
-  }
-
-  pub fn height(&self) -> u32 {
-    self.height
-  }
-
-  pub fn pitch(&self) -> u32 {
-    self.pitch
-  }
-}
-
-#[derive(Debug, PartialEq, Eq, Hash)]
-pub struct SoftwareRenderEnabled(pub(crate) ());
-
-#[derive(Debug, PartialEq, Eq, Hash)]
-pub struct GLRenderEnabled(pub(crate) ());
-
-pub trait HWRenderEnabled: private::Sealed {}
-
-impl HWRenderEnabled for GLRenderEnabled {}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct GLContextCallbacks {
-  pub get_proc_address_cb: non_null_retro_hw_get_proc_address_t,
-  pub get_current_framebuffer_cb: non_null_retro_hw_get_current_framebuffer_t,
-}
-
-mod private {
-  use crate::retro::GLRenderEnabled;
-
-  pub trait Sealed {}
-
-  impl Sealed for GLRenderEnabled {}
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum GLContextType {
-  OpenGL2,
-  OpenGLCore3_2,
-  OpenGLCore3_3,
-  OpenGLCore4_0,
-  OpenGLCore4_1,
-  OpenGLCore4_2,
-  OpenGLCore4_3,
-  OpenGLCore4_4,
-  OpenGLCore4_5,
-  OpenGLCore4_6,
-  OpenGLES2,
-  OpenGLES3,
-}
-
-struct GLVersion(retro_hw_context_type, u8, u8);
-
-impl From<GLContextType> for GLVersion {
-  fn from(value: GLContextType) -> Self {
-    use retro_hw_context_type::*;
-    use GLContextType::*;
-    match value {
-      OpenGL2 => Self(RETRO_HW_CONTEXT_OPENGL, 2, 0),
-      OpenGLCore3_2 => Self(RETRO_HW_CONTEXT_OPENGL_CORE, 3, 2),
-      OpenGLCore3_3 => Self(RETRO_HW_CONTEXT_OPENGL_CORE, 3, 3),
-      OpenGLCore4_0 => Self(RETRO_HW_CONTEXT_OPENGL_CORE, 4, 0),
-      OpenGLCore4_1 => Self(RETRO_HW_CONTEXT_OPENGL_CORE, 4, 1),
-      OpenGLCore4_2 => Self(RETRO_HW_CONTEXT_OPENGL_CORE, 4, 2),
-      OpenGLCore4_3 => Self(RETRO_HW_CONTEXT_OPENGL_CORE, 4, 3),
-      OpenGLCore4_4 => Self(RETRO_HW_CONTEXT_OPENGL_CORE, 4, 4),
-      OpenGLCore4_5 => Self(RETRO_HW_CONTEXT_OPENGL_CORE, 4, 5),
-      OpenGLCore4_6 => Self(RETRO_HW_CONTEXT_OPENGL_CORE, 4, 6),
-      OpenGLES2 => Self(RETRO_HW_CONTEXT_OPENGLES2, 2, 0),
-      OpenGLES3 => Self(RETRO_HW_CONTEXT_OPENGLES3, 3, 0),
-    }
-  }
-}
-
-#[repr(transparent)]
-pub struct GLOptions(retro_hw_render_callback);
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum GLBufferOptions {
-  #[default]
-  None,
-  DepthOnly,
-  DepthAndStencil,
-}
-
-impl GLOptions {
-  pub fn new(gl_type: GLContextType) -> Self {
-    GLOptions(retro_hw_render_callback::default()).set_gl_type(gl_type)
-  }
-
-  pub fn set_gl_type(mut self, gl_type: GLContextType) -> Self {
-    let GLVersion(context_type, major, minor) = gl_type.into();
-    self.0.context_type = context_type;
-    self.0.version_major = major as c_uint;
-    self.0.version_minor = minor as c_uint;
-    self
-  }
-
-  pub fn set_bottom_left_origin(mut self, bottom_left_origin: bool) -> Self {
-    self.0.bottom_left_origin = bottom_left_origin;
-    self
-  }
-
-  pub fn set_buffer_options(mut self, buffers: GLBufferOptions) -> Self {
-    match buffers {
-      GLBufferOptions::None => {
-        self.0.depth = false;
-        self.0.stencil = false;
-      }
-      GLBufferOptions::DepthOnly => {
-        self.0.depth = true;
-        self.0.stencil = false;
-      }
-      GLBufferOptions::DepthAndStencil => {
-        self.0.depth = true;
-        self.0.stencil = true;
-      }
-    }
-    self
-  }
-
-  pub fn set_cache_context(mut self, cache_context: bool) -> Self {
-    self.0.cache_context = cache_context;
-    self
-  }
-
-  pub fn set_debug_context(mut self, debug_context: bool) -> Self {
-    self.0.debug_context = debug_context;
-    self
-  }
-}
-
-impl From<GLOptions> for retro_hw_render_callback {
-  fn from(value: GLOptions) -> Self {
-    value.0
-  }
-}
-
-/// Pixel formats.
-pub mod pixel {
-  use arbitrary_int::{u5, u6};
-  use bitbybit::bitfield;
-  use std::marker::PhantomData;
-
-  #[derive(Debug, PartialEq, Eq, Hash)]
-  pub struct Format<T>(pub(crate) PhantomData<T>);
-
-  #[bitfield(u16, default: 0)]
-  #[derive(Debug, PartialEq, Eq, Hash)]
-  pub struct ORGB1555 {
-    #[bits(10..=14, rw)]
-    r: u5,
-    #[bits(5..=9, rw)]
-    g: u5,
-    #[bits(0..=4, rw)]
-    b: u5,
-  }
-
-  #[bitfield(u32, default: 0)]
-  #[derive(Debug, PartialEq, Eq, Hash)]
-  pub struct XRGB8888 {
-    #[bits(24..=31, rw)]
-    x: u8,
-    #[bits(16..=23, rw)]
-    r: u8,
-    #[bits(8..=15, rw)]
-    g: u8,
-    #[bits(0..=7, rw)]
-    b: u8,
-  }
-
-  #[bitfield(u16, default: 0)]
-  #[derive(Debug, PartialEq, Eq, Hash)]
-  pub struct RGB565 {
-    #[bits(11..=15, rw)]
-    r: u5,
-    #[bits(5..=10, rw)]
-    g: u6,
-    #[bits(0..=4, rw)]
-    b: u5,
   }
 }

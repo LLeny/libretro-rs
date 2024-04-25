@@ -1,19 +1,16 @@
 use crate::*;
 
 use crate::keyboard::KeyState;
-use libretro_rs::c_utf8::c_utf8;
-use libretro_rs::retro::env::{Init, UnloadGame};
-use libretro_rs::retro::pixel::{Format, XRGB8888};
-use libretro_rs::retro::*;
-use libretro_rs::{ext, libretro_core};
+use display;
+use libretro_rs::prelude::*;
 use std::error::Error;
 
 pub struct LibretroCore {
   cpu: cpu::Cpu,
   audio_buffer: [i16; timer::AUDIO_BUFFER_SIZE * 2],
-  frame_buffer: [XRGB8888; display::WIDTH * display::HEIGHT],
+  frame_buffer: ArrayFrameBuffer<XRGB8888, { display::AREA }, { display::WIDTH }>,
   rendering_mode: SoftwareRenderEnabled,
-  pixel_format: Format<XRGB8888>,
+  pixel_format: ActiveFormat<XRGB8888>,
 }
 
 impl LibretroCore {
@@ -28,10 +25,10 @@ impl LibretroCore {
 
   pub fn render_video(&mut self, callbacks: &mut impl Callbacks) {
     const PIXEL_SIZE: usize = 4;
-    const PITCH: usize = PIXEL_SIZE * display::WIDTH;
+    const PITCH: usize = PIXEL_SIZE * display::WIDTH as usize;
 
-    for y in 0..display::HEIGHT {
-      for x in 0..display::WIDTH {
+    for y in 0..display::HEIGHT as usize {
+      for x in 0..display::WIDTH as usize {
         let color = self.cpu.display.pixel(x, y).into();
         let index = (y * PITCH) + (x * PIXEL_SIZE);
 
@@ -39,10 +36,7 @@ impl LibretroCore {
       }
     }
 
-    let width = display::WIDTH as u32;
-    let height = display::HEIGHT as u32;
-    let frame = Frame::new(&self.frame_buffer, width, height);
-    callbacks.upload_video_frame(&self.rendering_mode, &self.pixel_format, &frame);
+    callbacks.upload_video_frame(&self.rendering_mode, &self.pixel_format, &self.frame_buffer);
   }
 
   fn set_rgb(&mut self, index: usize, color: XRGB8888) {
@@ -83,7 +77,7 @@ impl<'a> Core<'a> for LibretroCore {
     )
   }
 
-  fn init(_env: &mut impl Init) -> Self::Init {
+  fn init(_env: &mut impl env::Init) -> Self::Init {
     ()
   }
 
@@ -91,12 +85,7 @@ impl<'a> Core<'a> for LibretroCore {
     game: &GameInfo,
     args: LoadGameExtraArgs<'a, '_, E, Self::Init>,
   ) -> Result<Self, CoreError> {
-    let LoadGameExtraArgs {
-      env,
-      pixel_format,
-      rendering_mode,
-      ..
-    } = args;
+    let LoadGameExtraArgs { env, pixel_format, rendering_mode, .. } = args;
     let pixel_format = env.set_pixel_format_xrgb8888(pixel_format)?;
     let data: &[u8] = game.as_data().ok_or(CoreError::new())?.data();
     Ok(Self {
@@ -104,14 +93,14 @@ impl<'a> Core<'a> for LibretroCore {
       pixel_format,
       cpu: cpu::Cpu::new(data),
       audio_buffer: [0; timer::AUDIO_BUFFER_SIZE * 2],
-      frame_buffer: [XRGB8888::DEFAULT; display::AREA],
+      frame_buffer: ArrayFrameBuffer::default(),
     })
   }
 
   fn get_system_av_info(&self, _env: &mut impl env::GetAvInfo) -> SystemAVInfo {
     const WINDOW_SCALE: u16 = 8;
-    const WINDOW_WIDTH: u16 = WINDOW_SCALE * display::WIDTH as u16;
-    const WINDOW_HEIGHT: u16 = WINDOW_SCALE * display::HEIGHT as u16;
+    const WINDOW_WIDTH: u16 = WINDOW_SCALE * display::WIDTH;
+    const WINDOW_HEIGHT: u16 = WINDOW_SCALE * display::HEIGHT;
     SystemAVInfo::default_timings(GameGeometry::fixed(WINDOW_WIDTH, WINDOW_HEIGHT))
   }
 
@@ -129,7 +118,7 @@ impl<'a> Core<'a> for LibretroCore {
     todo!()
   }
 
-  fn unload_game(self, _env: &mut impl UnloadGame) -> Self::Init {
+  fn unload_game(self, _env: &mut impl env::UnloadGame) -> Self::Init {
     ()
   }
 }

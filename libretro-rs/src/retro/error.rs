@@ -68,8 +68,8 @@ impl From<CommandError> for CoreError {
   }
 }
 
-impl<T> From<crate::retro::av::pixel::Format<T>> for CoreError {
-  fn from(_value: crate::retro::av::pixel::Format<T>) -> Self {
+impl<T> From<crate::retro::pixel::format::ActiveFormat<T>> for CoreError {
+  fn from(_value: crate::retro::pixel::format::ActiveFormat<T>) -> Self {
     Self::new()
   }
 }

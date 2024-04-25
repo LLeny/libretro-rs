@@ -13,9 +13,7 @@
 //! the user unloads it or shuts down the frontend.
 
 use crate::ffi::*;
-use crate::retro::env::Environment;
-use crate::retro::pixel::{Format, ORGB1555};
-use crate::retro::*;
+use crate::prelude::*;
 use core::ffi::*;
 use core::mem::MaybeUninit;
 use core::ops::*;
@@ -79,7 +77,7 @@ pub struct LoadGameExtraArgs<'init, 'function, Env, Init> {
   pub env: &'function mut Env,
   pub init_state: &'init mut Init,
   pub rendering_mode: SoftwareRenderEnabled,
-  pub pixel_format: Format<ORGB1555>,
+  pub pixel_format: ActiveFormat<ORGB1555>,
 }
 
 /// Save state functions.
@@ -157,9 +155,9 @@ pub trait RegionAwareCore<'a>: Core<'a> {
 
 /// OpenGL context management functions.
 pub unsafe trait OpenGLCore<'a>: Core<'a> {
-  fn context_reset(&mut self, env: &mut impl Environment, callbacks: GLContextCallbacks);
+  fn context_reset(&mut self, env: &mut impl env::Environment, callbacks: GLContextCallbacks);
 
-  fn context_destroy(&mut self, env: &mut impl Environment);
+  fn context_destroy(&mut self, env: &mut impl env::Environment);
 }
 
 /// Rust interface for [`retro_system_info`].
@@ -248,8 +246,8 @@ pub trait Callbacks {
   fn upload_video_frame<P>(
     &mut self,
     enabled: &SoftwareRenderEnabled,
-    pixel_format: &Format<P>,
-    framebuffer: &Frame<'_, P>,
+    pixel_format: &ActiveFormat<P>,
+    framebuffer: &impl FrameBuffer,
   );
 
   /// Explicitly informs the `libretro` frontend to repeat the previous video frame.
@@ -285,8 +283,8 @@ impl Callbacks for InstanceCallbacks {
   fn upload_video_frame<P>(
     &mut self,
     enabled: &SoftwareRenderEnabled,
-    pixel_format: &Format<P>,
-    framebuffer: &Frame<'_, P>,
+    pixel_format: &ActiveFormat<P>,
+    framebuffer: &impl FrameBuffer,
   ) {
     unsafe { self.upload_video_frame(enabled, pixel_format, framebuffer) }
   }
@@ -402,9 +400,7 @@ impl<'a, C: Core<'a>> Instance<C::Init, C> {
   }
 
   pub unsafe fn on_load_game(&mut self, game: *const retro_game_info) -> bool {
-    let Instance {
-      env, init, core, ..
-    } = self;
+    let Instance { env, init, core, .. } = self;
     // Introduce an unbounded lifetime on purpose by coercing to a pointer and back.
     // This is normally extremely dangerous, but the libretro API guarantees that the
     // init data will outlive the core.
@@ -415,7 +411,7 @@ impl<'a, C: Core<'a>> Instance<C::Init, C> {
       env,
       init_state,
       rendering_mode: SoftwareRenderEnabled(()),
-      pixel_format: Format(PhantomData),
+      pixel_format: ActiveFormat(PhantomData),
     };
     let result = match as_ref_with_lifetime(game, &lifetime) {
       Some(game) => C::load_game(game, args),
@@ -583,9 +579,7 @@ impl<'a, C: SpecialGameCore<'a>> Instance<C::Init, C> {
     info: *const retro_game_info,
     num_info: usize,
   ) -> bool {
-    let Instance {
-      env, init, core, ..
-    } = self;
+    let Instance { env, init, core, .. } = self;
     // Introduce an unbounded lifetime on purpose by coercing to a pointer and back.
     // This is normally extremely dangerous, but the libretro API guarantees that the
     // init data will outlive the core.
@@ -667,7 +661,7 @@ impl InstanceEnvironment {
   }
 }
 
-impl Environment for InstanceEnvironment {
+impl env::Environment for InstanceEnvironment {
   fn get_ptr(&self) -> non_null_retro_environment_t {
     unsafe { self.cb.unwrap_unchecked() }
   }
@@ -726,14 +720,14 @@ impl InstanceCallbacks {
   unsafe fn upload_video_frame<P>(
     &mut self,
     _enabled: &SoftwareRenderEnabled,
-    _pixel_format: &Format<P>,
-    framebuffer: &Frame<'_, P>,
+    _pixel_format: &ActiveFormat<P>,
+    framebuffer: &impl FrameBuffer,
   ) {
     self.video_refresh.unwrap_unchecked()(
       framebuffer.data().as_ptr() as *const c_void,
-      framebuffer.width(),
-      framebuffer.height(),
-      framebuffer.pitch() as usize * core::mem::size_of::<P>(),
+      framebuffer.width() as u32,
+      framebuffer.height() as u32,
+      framebuffer.pitch(),
     )
   }
 
@@ -807,7 +801,7 @@ macro_rules! libretro_core {
       use core::ffi::*;
       use libretro_rs::ffi::*;
       use libretro_rs::libretro_core;
-      use libretro_rs::retro::*;
+      use libretro_rs::prelude::*;
 
       static mut RETRO_INSTANCE: Instance<<$core as Core>::Init, $core> =
         Instance::new(on_context_reset, on_context_destroy);

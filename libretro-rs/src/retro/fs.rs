@@ -1,8 +1,8 @@
 use ::core::ffi::*;
 
 /// A list of file extensions encoded in a pipe-delimited static C string,
-/// as specified by the libretro API. Use the [extensions!] macro to create
-/// values.
+/// as specified by the libretro API. The [ext!] macro provides a convenient
+/// syntax for creating values.
 #[repr(transparent)]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Extensions<'a>(&'a CStr);
@@ -38,17 +38,16 @@ impl From<Extensions<'_>> for *const c_char {
 /// # Examples
 /// ```
 /// use libretro_rs::ext;
-/// use libretro_rs::retro::*;
-/// use libretro_rs::c_utf8::c_utf8;
+/// use libretro_rs::prelude::*;
 /// assert_eq!(ext![], Extensions::new(c_utf8!("")));
 /// assert_eq!(ext!["rom"], Extensions::new(c_utf8!("rom")));
 /// assert_eq!(ext!["n64", "z64"], Extensions::new(c_utf8!(concat!("n64", "|", "z64"))));
 /// ```
 #[macro_export]
 macro_rules! ext {
-  () => { Extensions::new(c_utf8!("")) };
-  ( $single:expr ) => { Extensions::new(c_utf8!($single)) };
+  () => { $crate::retro::fs::Extensions::new(c_utf8!("")) };
+  ( $single:expr ) => { $crate::retro::fs::Extensions::new(c_utf8!($single)) };
   ( $head:expr , $( $tail:expr ),+ ) => {
-    Extensions::new(c_utf8!(concat!($head, $("|", $tail),+)))
+    $crate::retro::fs::Extensions::new(c_utf8!(concat!($head, $("|", $tail),+)))
   }
 }

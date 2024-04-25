@@ -1,5 +1,5 @@
 use crate::ffi::*;
-use crate::retro::*;
+use crate::retro::log::PlatformLogger;
 use ::core::ffi::*;
 use ::core::result::Result;
 use c_utf8::CUtf8;

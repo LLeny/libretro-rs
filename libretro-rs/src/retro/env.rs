@@ -1,7 +1,7 @@
 pub use crate::convert::*;
 use crate::ffi::*;
-use crate::retro::pixel::{Format, ORGB1555, RGB565, XRGB8888};
-use crate::retro::*;
+use crate::prelude::*;
+use crate::retro::pixel::format::{ActiveFormat, Format, ORGB1555, RGB565, XRGB8888};
 use libretro_rs_ffi::retro_pixel_format::{
   RETRO_PIXEL_FORMAT_0RGB1555, RETRO_PIXEL_FORMAT_RGB565, RETRO_PIXEL_FORMAT_XRGB8888,
 };
@@ -219,24 +219,33 @@ pub trait LoadGame: Environment {
     }
   }
 
-  fn set_pixel_format_0rgb1555<F>(
+  fn set_pixel_format_0rgb1555<P>(
     &mut self,
-    current_format: Format<F>,
-  ) -> core::result::Result<Format<ORGB1555>, Format<F>> {
+    current_format: ActiveFormat<P>,
+  ) -> core::result::Result<ActiveFormat<ORGB1555>, ActiveFormat<P>>
+  where
+    P: Format,
+  {
     GetAvInfo::set_pixel_format_0rgb1555(self, current_format)
   }
 
-  fn set_pixel_format_xrgb8888<F>(
+  fn set_pixel_format_xrgb8888<P>(
     &mut self,
-    current_format: Format<F>,
-  ) -> core::result::Result<Format<XRGB8888>, Format<F>> {
+    current_format: ActiveFormat<P>,
+  ) -> core::result::Result<ActiveFormat<XRGB8888>, ActiveFormat<P>>
+  where
+    P: Format,
+  {
     GetAvInfo::set_pixel_format_xrgb8888(self, current_format)
   }
 
-  fn set_pixel_format_rgb565<F>(
+  fn set_pixel_format_rgb565<P>(
     &mut self,
-    current_format: Format<F>,
-  ) -> core::result::Result<Format<RGB565>, Format<F>> {
+    current_format: ActiveFormat<P>,
+  ) -> core::result::Result<ActiveFormat<RGB565>, ActiveFormat<P>>
+  where
+    P: Format,
+  {
     GetAvInfo::set_pixel_format_rgb565(self, current_format)
   }
 
@@ -257,15 +266,15 @@ pub trait GetAvInfo: Environment {
   #[allow(unused_variables)]
   fn set_pixel_format_0rgb1555<F>(
     &mut self,
-    current_format: Format<F>,
-  ) -> core::result::Result<Format<ORGB1555>, Format<F>> {
+    current_format: ActiveFormat<F>,
+  ) -> core::result::Result<ActiveFormat<ORGB1555>, ActiveFormat<F>> {
     unsafe {
       self
         .set(
           RETRO_ENVIRONMENT_SET_PIXEL_FORMAT,
           &RETRO_PIXEL_FORMAT_0RGB1555,
         )
-        .map(|_| Format(PhantomData))
+        .map(|_| ActiveFormat(PhantomData))
         .map_err(|_| current_format)
     }
   }
@@ -273,15 +282,15 @@ pub trait GetAvInfo: Environment {
   #[allow(unused_variables)]
   fn set_pixel_format_xrgb8888<F>(
     &mut self,
-    current_format: Format<F>,
-  ) -> core::result::Result<Format<XRGB8888>, Format<F>> {
+    current_format: ActiveFormat<F>,
+  ) -> core::result::Result<ActiveFormat<XRGB8888>, ActiveFormat<F>> {
     unsafe {
       self
         .set(
           RETRO_ENVIRONMENT_SET_PIXEL_FORMAT,
           &RETRO_PIXEL_FORMAT_XRGB8888,
         )
-        .map(|_| Format(PhantomData))
+        .map(|_| ActiveFormat(PhantomData))
         .map_err(|_| current_format)
     }
   }
@@ -289,15 +298,15 @@ pub trait GetAvInfo: Environment {
   #[allow(unused_variables)]
   fn set_pixel_format_rgb565<F>(
     &mut self,
-    current_format: Format<F>,
-  ) -> core::result::Result<Format<RGB565>, Format<F>> {
+    current_format: ActiveFormat<F>,
+  ) -> core::result::Result<ActiveFormat<RGB565>, ActiveFormat<F>> {
     unsafe {
       self
         .set(
           RETRO_ENVIRONMENT_SET_PIXEL_FORMAT,
           &RETRO_PIXEL_FORMAT_RGB565,
         )
-        .map(|_| Format(PhantomData))
+        .map(|_| ActiveFormat(PhantomData))
         .map_err(|_| current_format)
     }
   }

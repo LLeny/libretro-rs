@@ -1,9 +1,9 @@
-pub const WIDTH: usize = 64;
-pub const HEIGHT: usize = 32;
-pub const AREA: usize = WIDTH * HEIGHT;
+pub const WIDTH: u16 = 64;
+pub const HEIGHT: u16 = 32;
+pub const AREA: usize = WIDTH as usize * HEIGHT as usize;
 
-const WIDTH_MASK: usize = WIDTH - 1;
-const HEIGHT_MASK: usize = HEIGHT - 1;
+const WIDTH_MASK: usize = WIDTH as usize - 1;
+const HEIGHT_MASK: usize = HEIGHT as usize - 1;
 
 #[derive(Clone, Copy)]
 pub enum Pixel {
@@ -21,13 +21,13 @@ impl Pixel {
 }
 
 pub struct Display {
-  buffer: [[Pixel; WIDTH]; HEIGHT],
+  buffer: [[Pixel; WIDTH as usize]; HEIGHT as usize],
 }
 
 impl Display {
   pub fn new() -> Display {
     Display {
-      buffer: [[Pixel::Off; WIDTH]; HEIGHT],
+      buffer: [[Pixel::Off; WIDTH as usize]; HEIGHT as usize],
     }
   }
 
@@ -41,8 +41,8 @@ impl Display {
 
   /// Handler for the `cls` instruction.
   pub fn cls(&mut self) {
-    for y in 0..HEIGHT {
-      for x in 0..WIDTH {
+    for y in 0..HEIGHT as usize {
+      for x in 0..WIDTH as usize {
         self.set_pixel(x, y, Pixel::Off);
       }
     }

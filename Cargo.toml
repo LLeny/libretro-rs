@@ -1,9 +1,9 @@
 [workspace]
 members = [
-  "example",
-  "libretro-rs",
-  "libretro-rs-ffi"
+    "libretro-rs",
+    "libretro-rs-ffi"
 ]
+resolver = "2"
 
 [profile.dev]
 panic = "abort"
