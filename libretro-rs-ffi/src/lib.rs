@@ -27,6 +27,15 @@ pub type non_null_retro_hw_get_current_framebuffer_t = unsafe extern "C" fn() ->
 pub type non_null_retro_hw_get_proc_address_t = unsafe extern "C" fn(sym: *const c_char) -> retro_proc_address_t;
 pub type non_null_retro_hw_context_reset_t = unsafe extern "C" fn();
 
+pub type non_null_retro_netpacket_send_t = unsafe extern "C" fn(flags: c_int, data: *const c_void, len: usize, client_id: u16);
+pub type non_null_retro_netpacket_poll_receive_t = unsafe extern "C" fn();
+pub type non_null_retro_netpacket_start_t = unsafe extern "C" fn(client_id: u16, send_fn: retro_netpacket_send_t, poll_receive_fn: retro_netpacket_poll_receive_t);
+pub type non_null_retro_netpacket_receive_t = unsafe extern "C" fn(buf: *const c_void, len: usize, client_id: u16);
+pub type non_null_retro_netpacket_stop_t = unsafe extern "C" fn();
+pub type non_null_retro_netpacket_poll_t = unsafe extern "C" fn();
+pub type non_null_retro_netpacket_connected_t = unsafe extern "C" fn(client_id: u16) -> bool;
+pub type non_null_retro_netpacket_disconnected_t = unsafe extern "C" fn(client_id: u16);
+
 pub const RETRO_HW_FRAME_BUFFER_VALID: *const c_void = sptr::invalid(usize::MAX);
 
 #[cfg(test)]

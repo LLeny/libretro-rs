@@ -14,6 +14,7 @@
 
 use crate::ffi::*;
 use crate::prelude::*;
+use c_utf8::CUtf8;
 use core::ffi::*;
 use core::mem::MaybeUninit;
 use core::ops::*;
@@ -69,6 +70,88 @@ pub trait Core<'a>: Sized {
   /// Called during `retro_deinit`
   #[allow(unused_variables)]
   fn deinit(env: &mut impl env::Deinit, init_state: Self::Init) {}
+}
+
+#[doc(hidden)]
+pub trait NetpacketCoreFallbacks {
+  unsafe fn on_netpacket_start(
+    &mut self,
+    _client_id: u16,
+    _send_fn: retro_netpacket_send_t,
+    _poll_receive_fn: retro_netpacket_poll_receive_t,
+  );
+  unsafe fn on_netpacket_receive(&mut self, _buf: *const c_void, _len: usize, _client_id: u16);
+  unsafe fn on_netpacket_stop(&mut self);
+  unsafe fn on_netpacket_poll(&mut self);
+  unsafe fn on_netpacket_connected(&mut self, _client_id: u16) -> bool;
+  unsafe fn on_netpacket_disconnected(&mut self, _client_id: u16);
+}
+
+impl<I, C> NetpacketCoreFallbacks for Instance<I, C> {
+  unsafe fn on_netpacket_start(
+    &mut self,
+    _client_id: u16,
+    _send_fn: retro_netpacket_send_t,
+    _poll_receive_fn: retro_netpacket_poll_receive_t,
+  ) {
+  }
+  unsafe fn on_netpacket_receive(&mut self, _buf: *const c_void, _len: usize, _client_id: u16) {}
+  unsafe fn on_netpacket_stop(&mut self) {}
+  unsafe fn on_netpacket_poll(&mut self) {}
+  unsafe fn on_netpacket_connected(&mut self, _client_id: u16) -> bool {
+    false
+  }
+  unsafe fn on_netpacket_disconnected(&mut self, _client_id: u16) {}
+}
+
+impl<'a, C: NetpacketCore<'a>> Instance<C::Init, C> {
+  pub unsafe fn on_netpacket_start(
+    &mut self,
+    client_id: u16,
+    send_fn: retro_netpacket_send_t,
+    poll_receive_fn: retro_netpacket_poll_receive_t,
+  ) {
+    let Instance { env, core, .. } = self;
+    let core = core.assume_init_mut();
+    let send_fn = crate::retro::netpacket::NetpacketSender::from_option(send_fn)
+      .expect("frontend passed null netpacket send function");
+    let poll_receive_fn =
+      crate::retro::netpacket::NetpacketPollReceive::from_option(poll_receive_fn);
+    core.netpacket_start(env, client_id, send_fn, poll_receive_fn);
+  }
+
+  pub unsafe fn on_netpacket_receive(&mut self, buf: *const c_void, len: usize, client_id: u16) {
+    let Instance { env, core, .. } = self;
+    let core = core.assume_init_mut();
+    if buf.is_null() || len == 0 {
+      core.netpacket_receive(env, &[], client_id);
+      return;
+    }
+    let data = slice::from_raw_parts(buf as *const u8, len);
+    core.netpacket_receive(env, data, client_id);
+  }
+
+  pub unsafe fn on_netpacket_stop(&mut self) {
+    let Instance { env, core, .. } = self;
+    core.assume_init_mut().netpacket_stop(env);
+  }
+
+  pub unsafe fn on_netpacket_poll(&mut self) {
+    let Instance { env, core, .. } = self;
+    core.assume_init_mut().netpacket_poll(env);
+  }
+
+  pub unsafe fn on_netpacket_connected(&mut self, client_id: u16) -> bool {
+    let Instance { env, core, .. } = self;
+    core.assume_init_mut().netpacket_connected(env, client_id)
+  }
+
+  pub unsafe fn on_netpacket_disconnected(&mut self, client_id: u16) {
+    let Instance { env, core, .. } = self;
+    core
+      .assume_init_mut()
+      .netpacket_disconnected(env, client_id)
+  }
 }
 
 #[non_exhaustive]
@@ -158,6 +241,22 @@ pub unsafe trait OpenGLCore<'a>: Core<'a> {
   fn context_reset(&mut self, env: &mut impl env::Environment, callbacks: GLContextCallbacks);
 
   fn context_destroy(&mut self, env: &mut impl env::Environment);
+}
+
+pub trait NetpacketCore<'a>: Core<'a> {
+  fn netpacket_protocol_version() -> Option<&'static CUtf8>;
+  fn netpacket_start(
+    &mut self,
+    env: &mut impl env::Environment,
+    client_id: u16,
+    send_fn: crate::retro::netpacket::NetpacketSender,
+    poll_receive_fn: Option<crate::retro::netpacket::NetpacketPollReceive>,
+  );
+  fn netpacket_receive(&mut self, env: &mut impl env::Environment, buf: &[u8], client_id: u16);
+  fn netpacket_stop(&mut self, _env: &mut impl env::Environment);
+  fn netpacket_poll(&mut self, _env: &mut impl env::Environment);
+  fn netpacket_connected(&mut self, _env: &mut impl env::Environment, _client_id: u16) -> bool;
+  fn netpacket_disconnected(&mut self, _env: &mut impl env::Environment, _client_id: u16);
 }
 
 /// Rust interface for [`retro_system_info`].
@@ -376,6 +475,10 @@ impl<I, C> Instance<I, C> {
 
   pub fn on_set_video_refresh(&mut self, cb: non_null_retro_video_refresh_t) {
     self.cb.video_refresh = Some(cb);
+  }
+
+  pub fn on_set_netpacket(&mut self, cb: retro_netpacket_callback) {
+    self.cb.netpacket_callback = Some(cb);
   }
 }
 
@@ -689,13 +792,14 @@ impl env::LoadGame for InstanceEnvironment {
 }
 
 #[doc(hidden)]
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug)]
 pub struct InstanceCallbacks {
   audio_sample: retro_audio_sample_t,
   audio_sample_batch: retro_audio_sample_batch_t,
   input_poll: retro_input_poll_t,
   input_state: retro_input_state_t,
   video_refresh: retro_video_refresh_t,
+  netpacket_callback: Option<retro_netpacket_callback>,
 }
 
 impl InstanceCallbacks {
@@ -706,6 +810,7 @@ impl InstanceCallbacks {
       input_poll: None,
       input_state: None,
       video_refresh: None,
+      netpacket_callback: None,
     }
   }
 
@@ -802,6 +907,8 @@ macro_rules! libretro_core {
       use libretro_rs::ffi::*;
       use libretro_rs::libretro_core;
       use libretro_rs::prelude::*;
+      use libretro_rs::retro::game::GameType;
+      use libretro_rs::retro::mem::MemoryType;
 
       static mut RETRO_INSTANCE: Instance<<$core as Core>::Init, $core> =
         Instance::new(on_context_reset, on_context_destroy);
@@ -911,11 +1018,11 @@ macro_rules! libretro_core {
 
       #[no_mangle]
       unsafe extern "C" fn retro_load_game_special(
-        game_type: GameType,
-        info: &retro_game_info,
-        num_info: usize,
+        game_type: c_uint,
+        games: *const retro_game_info,
+        num_games: usize,
       ) -> bool {
-        RETRO_INSTANCE.on_load_game_special(game_type, info, num_info)
+        RETRO_INSTANCE.on_load_game_special(GameType::from(game_type), games, num_games)
       }
 
       #[no_mangle]
@@ -929,13 +1036,13 @@ macro_rules! libretro_core {
       }
 
       #[no_mangle]
-      unsafe extern "C" fn retro_get_memory_data(id: MemoryType) -> *mut () {
-        RETRO_INSTANCE.on_get_memory_data(id)
+      unsafe extern "C" fn retro_get_memory_data(id: c_uint) -> *mut () {
+        RETRO_INSTANCE.on_get_memory_data(MemoryType::from(id))
       }
 
       #[no_mangle]
-      unsafe extern "C" fn retro_get_memory_size(id: MemoryType) -> usize {
-        RETRO_INSTANCE.on_get_memory_size(id)
+      unsafe extern "C" fn retro_get_memory_size(id: c_uint) -> usize {
+        RETRO_INSTANCE.on_get_memory_size(MemoryType::from(id))
       }
 
       // These don't need no_mangle; they're only used through pointers
@@ -946,6 +1053,37 @@ macro_rules! libretro_core {
       unsafe extern "C" fn on_context_destroy() {
         RETRO_INSTANCE.on_context_destroy()
       }
+
+      unsafe extern "C" fn on_netpacket_start(
+        client_id: u16,
+        send_fn: retro_netpacket_send_t,
+        poll_receive_fn: retro_netpacket_poll_receive_t,
+      ) {
+        RETRO_INSTANCE.on_netpacket_start(client_id, send_fn, poll_receive_fn)
+      }
+
+      unsafe extern "C" fn on_netpacket_receive(buf: *const c_void, len: usize, client_id: u16) {
+        RETRO_INSTANCE.on_netpacket_receive(buf, len, client_id)
+      }
+
+      unsafe extern "C" fn on_netpacket_stop() {
+        RETRO_INSTANCE.on_netpacket_stop()
+      }
+
+      unsafe extern "C" fn on_netpacket_poll() {
+        RETRO_INSTANCE.on_netpacket_poll()
+      }
+
+      unsafe extern "C" fn on_netpacket_connected(client_id: u16) -> bool {
+        RETRO_INSTANCE.on_netpacket_connected(client_id)
+      }
+
+      unsafe extern "C" fn on_netpacket_disconnected(client_id: u16) {
+        RETRO_INSTANCE.on_netpacket_disconnected(client_id)
+      }
     }
   };
 }
+
+// Export the macros
+pub use libretro_core;

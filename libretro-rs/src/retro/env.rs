@@ -359,6 +359,14 @@ pub extern "C" fn null_environment(_cmd: c_uint, _data: *mut c_void) -> bool {
   false
 }
 
+pub trait Netpacket: Environment {
+  fn set_netpacket_interface(&mut self, cb: &retro_netpacket_callback) -> Result<()> {
+    unsafe { self.set(RETRO_ENVIRONMENT_SET_NETPACKET_INTERFACE, cb) }
+  }
+}
+
+impl<T: Environment> Netpacket for T {}
+
 /// Marker trait for types that are valid arguments to the environment callback.
 ///
 /// Any type implementing this trait must be FFI-safe. Structs should be `#[repr(C)]` or a
@@ -385,3 +393,4 @@ impl CommandData for retro_pixel_format {}
 impl CommandData for retro_system_av_info {}
 impl CommandData for SystemAVInfo {}
 impl CommandData for retro_variable {}
+impl CommandData for retro_netpacket_callback {}
