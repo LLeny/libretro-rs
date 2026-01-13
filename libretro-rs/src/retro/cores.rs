@@ -940,7 +940,21 @@ macro_rules! libretro_core {
 
       #[no_mangle]
       unsafe extern "C" fn retro_set_environment(cb: non_null_retro_environment_t) {
-        RETRO_INSTANCE.on_set_environment(cb)
+        RETRO_INSTANCE.on_set_environment(cb);
+        
+        let callback = retro_netpacket_callback {
+          start: Some(on_netpacket_start),
+          receive: Some(on_netpacket_receive),
+          stop: Some(on_netpacket_stop),
+          poll: Some(on_netpacket_poll),
+          connected: Some(on_netpacket_connected),
+          disconnected: Some(on_netpacket_disconnected),
+          protocol_version: core::ptr::null(),
+        };
+        cb(
+          RETRO_ENVIRONMENT_SET_NETPACKET_INTERFACE,
+          &callback as *const _ as *mut c_void,
+        );
       }
 
       #[no_mangle]
