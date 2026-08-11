@@ -21,7 +21,7 @@ pub trait HWRenderEnabled: private::Sealed {}
 impl private::Sealed for GLRenderEnabled {}
 impl HWRenderEnabled for GLRenderEnabled {}
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug)]
 pub struct GLContextCallbacks {
   pub get_proc_address_cb: non_null_retro_hw_get_proc_address_t,
   pub get_current_framebuffer_cb: non_null_retro_hw_get_current_framebuffer_t,

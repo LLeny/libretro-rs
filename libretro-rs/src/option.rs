@@ -82,14 +82,14 @@ pub unsafe trait Option<T>: Sized {
     unsafe { (if self.is_some() { Ok(self.unwrap_unchecked()) } else { Err(err()) }) }
   }
 
-  fn as_deref<'a>(&'a self) -> StdOption<&<T as Deref>::Target>
+  fn as_deref<'a>(&'a self) -> StdOption<&'a <T as Deref>::Target>
   where
     T: Deref + 'a,
   {
     self.as_ref().map(|x| x.deref())
   }
 
-  fn as_deref_mut<'a>(&'a mut self) -> StdOption<&mut <T as Deref>::Target>
+  fn as_deref_mut<'a>(&'a mut self) -> StdOption<&'a mut <T as Deref>::Target>
   where
     T: DerefMut + 'a,
   {

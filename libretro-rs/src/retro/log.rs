@@ -44,7 +44,7 @@ pub type RetroPrintF = unsafe extern "C" fn(level: retro_log_level, fmt: *const 
 
 /// The platform-specific [Logger] provided by [RetroEnvironment::get_log_interface].
 #[repr(transparent)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
 pub struct PlatformLogger(RetroPrintF);
 
 impl PlatformLogger {

@@ -108,7 +108,7 @@ pub enum JoypadButton {
   R2 = 13,
   L3 = 14,
   R3 = 15,
-  #[cfg(experimental)]
+  #[cfg(feature = "experimental")]
   Mask = 256,
 }
 

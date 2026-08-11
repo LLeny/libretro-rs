@@ -70,7 +70,6 @@ pub trait Environment: Sized {
     unsafe { self.set(RETRO_ENVIRONMENT_SET_ROTATION, &(rotation as c_int)) }
   }
 
-  #[cfg(deprecated)]
   /// Boolean value whether or not the implementation should use overscan,
   /// or crop away overscan.
   fn get_overscan(&self) -> Result<bool> {

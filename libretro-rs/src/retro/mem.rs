@@ -29,21 +29,6 @@ impl From<MemoryType> for c_uint {
   }
 }
 
-trait TypeId: Sized {
-  fn into_discriminant(self) -> u8;
-  fn from_discriminant(id: u8) -> Option<Self>;
-}
-
-impl TypeId for () {
-  fn into_discriminant(self) -> u8 {
-    0
-  }
-
-  fn from_discriminant(_id: u8) -> Option<Self> {
-    None
-  }
-}
-
 /// Enum for the `RETRO_MEMORY_*` constants in `libretro.h`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum StandardMemoryType {

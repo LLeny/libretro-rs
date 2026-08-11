@@ -649,7 +649,7 @@ pub trait OpenGLCoreFallbacks {
 impl<I, C> OpenGLCoreFallbacks for Instance<I, C> {}
 
 #[doc(hidden)]
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug)]
 pub struct InstanceEnvironment {
   cb: retro_environment_t,
   gl: InstanceGLState,
@@ -689,7 +689,7 @@ impl env::LoadGame for InstanceEnvironment {
 }
 
 #[doc(hidden)]
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug)]
 pub struct InstanceCallbacks {
   audio_sample: retro_audio_sample_t,
   audio_sample_batch: retro_audio_sample_batch_t,
@@ -760,7 +760,7 @@ impl InstanceCallbacks {
 }
 
 #[doc(hidden)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug)]
 pub struct InstanceGLState {
   context_reset: non_null_retro_hw_context_reset_t,
   context_destroy: non_null_retro_hw_context_reset_t,
